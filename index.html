@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lector PDF · Visor Adaptativo Caelestia</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg>">
+</head>
+<body data-readmode="light">
+
+  <!-- Header Superior Minimalista -->
+  <header id="app-header">
+    <div class="header-brand">
+      <svg class="tool-icon" style="color:var(--ac)" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <span>Lector PDF</span>
+      <span class="header-brand-badge">Caelestia Glass</span>
+    </div>
+
+    <div class="header-doc-title" id="header-title">Sin documento abierto</div>
+
+    <div class="header-actions">
+      <button class="action-chip" onclick="document.getElementById('file-input').click()">
+        <svg class="tool-icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+        <span>Abrir</span>
+      </button>
+      <a class="action-chip" href="prototipos.html" style="text-decoration:none">
+        <span>Lab Prototipos</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Viewport de Lectura Continuo -->
+  <main id="app-viewport">
+    
+    <!-- Zona de Bienvenida y Arrastre -->
+    <div id="welcome-dropzone">
+      <svg class="welcome-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-width="2"/>
+        <polyline points="14 2 14 8 20 8" stroke-width="2"/>
+        <path d="M12 18v-6M9 15l3-3 3 3" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h2 class="welcome-title">Arrastra aquí cualquier archivo PDF</h2>
+      <p class="welcome-desc">O haz clic para seleccionar un documento desde tus carpetas locales.</p>
+      <button class="welcome-btn" onclick="document.getElementById('file-input').click()">Elegir archivo PDF</button>
+
+      <!-- PDFs descargados para prueba inmediata -->
+      <div class="recent-list">
+        <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:700;letter-spacing:0.6px;text-align:left;margin-bottom:4px">Archivos PDF de prueba disponibles:</div>
+        <div class="recent-item" id="btn-sample-busqueda">
+          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <span>Análisis de la Búsqueda Binaria Recursiva.pdf</span>
+        </div>
+        <div class="recent-item" id="btn-sample-tgr">
+          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <span>TGR2.pdf</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenedor dinámico de páginas del PDF -->
+    <div id="pages-container" style="display:none;flex-direction:column;align-items:center;width:100%"></div>
+
+  </main>
+
+  <input type="file" id="file-input" accept="application/pdf" style="display:none" />
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

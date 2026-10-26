@@ -1,0 +1,370 @@
+import './styles/app.css';
+import { PDFViewerEngine } from './core/pdf-renderer';
+import { MagneticToolbar } from './ui/toolbar';
+import { calculateDocking } from './ui/magnetic-dock';
+import { AnnotationManager } from './features/annotations';
+import { TOCSearchPanels } from './features/toc-search-panels';
+import { ReadingModesManager } from './features/reading-modes';
+import { HighlightColor, MarginMetrics, NormalizedRect } from './types';
+
+class LectorPDFApp {
+  private pdfEngine = new PDFViewerEngine();
+  private annotationManager = new AnnotationManager();
+  private readingModes = new ReadingModesManager();
+  private toolbar!: MagneticToolbar;
+  private panels!: TOCSearchPanels;
+
+  private viewportEl = document.getElementById('app-viewport') as HTMLElement;
+  private pagesContainer = document.getElementById('pages-container') as HTMLElement;
+  private welcomeEl = document.getElementById('welcome-dropzone') as HTMLElement;
+  private docTitleEl = document.getElementById('header-title') as HTMLElement;
+  private fileInput = document.getElementById('file-input') as HTMLInputElement;
+
+  private currentDocId = 'default';
+  private activeColor: HighlightColor = 'yellow';
+  private activeTool: 'cursor' | 'highlighter' | 'note' = 'cursor';
+  private currentPage = 1;
+  private totalPages = 0;
+
+  constructor() {
+    this.initUI();
+    this.setupDropzone();
+    this.setupResizeAndScroll();
+    this.setupKeyboardShortcuts();
+  }
+
+  getCurrentDocId(): string {
+    return this.currentDocId;
+  }
+
+  getActiveTool(): 'cursor' | 'highlighter' | 'note' {
+    return this.activeTool;
+  }
+
+  private initUI() {
+    // 1. Barra Magnética (Píldora Caelestia Glass)
+    this.toolbar = new MagneticToolbar(document.body, {
+      onToolChange: (tool) => {
+        this.activeTool = tool;
+      },
+      onColorChange: (color) => {
+        this.activeColor = color;
+      },
+      onSearchToggle: () => {
+        this.panels.toggleSearch();
+      },
+      onTOCToggle: () => {
+        this.panels.toggleTOC();
+      },
+      onZoomChange: (delta) => {
+        this.applyZoom(this.pdfEngine.getScale() + delta);
+      },
+      onModeChange: (mode) => {
+        this.readingModes.setMode(mode);
+      },
+      onZenToggle: (zenActive) => {
+        if (zenActive) this.toolbar.triggerZenActivity();
+      },
+      onPageJump: (pageNumber) => {
+        this.jumpToPage(pageNumber);
+      },
+      onOpenFile: () => {
+        this.fileInput.click();
+      },
+    });
+
+    // 2. Paneles de TOC y Buscador
+    this.panels = new TOCSearchPanels(
+      document.body,
+      (page) => this.jumpToPage(page),
+      (color) => this.highlightCurrentSelection(color),
+      () => this.addNoteToCurrentSelection()
+    );
+
+    this.panels.onSearchInput(async (query) => {
+      if (query.trim().length >= 2) {
+        const results = await this.pdfEngine.search(query);
+        this.panels.setSearchResults(results, query);
+      } else {
+        this.panels.setSearchResults([], query);
+      }
+    });
+
+    // 3. File Input nativo
+    this.fileInput.addEventListener('change', async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        await this.loadFromFile(files[0]);
+      }
+    });
+
+    // Ocultar la barra hasta que haya un documento
+    this.toolbar.getElement().style.display = 'none';
+  }
+
+  async loadFromFile(file: File) {
+    const buffer = await file.arrayBuffer();
+    this.currentDocId = file.name;
+    this.annotationManager.setDocumentId(file.name);
+    await this.renderDocument(buffer, file.name);
+  }
+
+  async loadFromUrl(url: string, title: string) {
+    this.currentDocId = title;
+    this.annotationManager.setDocumentId(title);
+    await this.renderDocument(url, title);
+  }
+
+  private async renderDocument(source: string | ArrayBuffer, title: string) {
+    this.welcomeEl.style.display = 'none';
+    this.pagesContainer.style.display = 'flex';
+    this.pagesContainer.innerHTML = '';
+    this.docTitleEl.textContent = title;
+
+    const info = await this.pdfEngine.load(source);
+    this.totalPages = info.numPages;
+    this.toolbar.setPage(1, this.totalPages);
+    this.toolbar.getElement().style.display = 'flex';
+
+    // Cargar índice (TOC)
+    const toc = await this.pdfEngine.extractTOC();
+    this.panels.setTOC(toc);
+
+    // Crear contenedores para todas las páginas
+    for (let p = 1; p <= this.totalPages; p++) {
+      const pageWrapper = document.createElement('div');
+      pageWrapper.className = 'pdf-page-wrapper';
+      pageWrapper.id = `page-${p}`;
+      this.pagesContainer.appendChild(pageWrapper);
+
+      // Renderizar página inicial
+      await this.pdfEngine.renderPage(p, pageWrapper);
+      const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
+      if (annotLayer) {
+        this.annotationManager.renderAnnotationsForPage(p, annotLayer);
+      }
+    }
+
+    // Actualizar posicionamiento adaptativo de la barra
+    setTimeout(() => this.updateMagneticDock(), 60);
+  }
+
+  private applyZoom(newScale: number) {
+    this.pdfEngine.setScale(newScale);
+    // Re-renderizar páginas con la nueva escala
+    for (let p = 1; p <= this.totalPages; p++) {
+      const pageWrapper = document.getElementById(`page-${p}`);
+      if (pageWrapper) {
+        this.pdfEngine.renderPage(p, pageWrapper).then(() => {
+          const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
+          if (annotLayer) {
+            this.annotationManager.renderAnnotationsForPage(p, annotLayer);
+          }
+          this.updateMagneticDock();
+        });
+      }
+    }
+  }
+
+  private jumpToPage(page: number) {
+    this.currentPage = page;
+    this.toolbar.setPage(page, this.totalPages);
+    const target = document.getElementById(`page-${page}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  private updateMagneticDock() {
+    if (this.totalPages === 0) return;
+
+    const firstPage = this.pagesContainer.querySelector('.pdf-page-wrapper') as HTMLElement;
+    if (!firstPage) return;
+
+    const vRect = this.viewportEl.getBoundingClientRect();
+    const dRect = firstPage.getBoundingClientRect();
+
+    const metrics: MarginMetrics = {
+      marginLeft: Math.max(0, dRect.left - vRect.left),
+      marginRight: Math.max(0, vRect.right - dRect.right),
+      marginTop: Math.max(0, dRect.top - vRect.top),
+      marginBottom: Math.max(0, vRect.bottom - dRect.bottom),
+      docWidth: dRect.width,
+      docHeight: dRect.height,
+      viewportWidth: vRect.width,
+      viewportHeight: vRect.height,
+    };
+
+    const dockResult = calculateDocking(metrics);
+    this.toolbar.setOrientation(dockResult.isVertical, dockResult.dock, dockResult.coords);
+  }
+
+  private setupDropzone() {
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      this.welcomeEl.classList.add('dragover');
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null) {
+        this.welcomeEl.classList.remove('dragover');
+      }
+    });
+
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      this.welcomeEl.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          await this.loadFromFile(file);
+        }
+      }
+    });
+
+    this.welcomeEl.addEventListener('click', () => {
+      this.fileInput.click();
+    });
+
+    document.getElementById('btn-sample-busqueda')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await this.loadFromUrl('/samples/busqueda_binaria.pdf', 'Análisis de la Búsqueda Binaria Recursiva.pdf');
+    });
+
+    document.getElementById('btn-sample-tgr')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await this.loadFromUrl('/samples/tgr2.pdf', 'TGR2.pdf');
+    });
+  }
+
+  private setupResizeAndScroll() {
+    window.addEventListener('resize', () => {
+      this.updateMagneticDock();
+    });
+
+    this.viewportEl.addEventListener('scroll', () => {
+      this.toolbar.triggerZenActivity();
+
+      // Detectar página visible
+      const wrappers = this.pagesContainer.querySelectorAll('.pdf-page-wrapper');
+      const vTop = this.viewportEl.scrollTop + 120;
+      for (const w of Array.from(wrappers)) {
+        const el = w as HTMLElement;
+        if (el.offsetTop <= vTop && el.offsetTop + el.offsetHeight > vTop) {
+          const p = parseInt(el.id.replace('page-', ''), 10);
+          if (p !== this.currentPage && !isNaN(p)) {
+            this.currentPage = p;
+            this.toolbar.setPage(p, this.totalPages);
+          }
+          break;
+        }
+      }
+    });
+  }
+
+  private highlightCurrentSelection(color: HighlightColor) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+
+    const range = sel.getRangeAt(0);
+    const selectedText = sel.toString().trim();
+    if (!selectedText) return;
+
+    // Localizar a qué página pertenece la selección
+    let node: Node | null = range.startContainer;
+    while (node && !((node as HTMLElement).classList && (node as HTMLElement).classList.contains('pdf-page-wrapper'))) {
+      node = node.parentNode;
+    }
+
+    if (!node) return;
+    const pageWrapper = node as HTMLElement;
+    const pageNum = parseInt(pageWrapper.id.replace('page-', ''), 10);
+    const pageRect = pageWrapper.getBoundingClientRect();
+
+    // Obtener rectángulos de la selección
+    const clientRects = Array.from(range.getClientRects());
+    const normalizedRects: NormalizedRect[] = clientRects.map(r => ({
+      top: (r.top - pageRect.top) / pageRect.height,
+      left: (r.left - pageRect.left) / pageRect.width,
+      width: r.width / pageRect.width,
+      height: r.height / pageRect.height,
+    }));
+
+    this.annotationManager.addHighlight(pageNum, color, selectedText, normalizedRects);
+
+    const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
+    if (annotLayer) {
+      this.annotationManager.renderAnnotationsForPage(pageNum, annotLayer);
+    }
+
+    sel.removeAllRanges();
+  }
+
+  private addNoteToCurrentSelection() {
+    const text = prompt('Escribe tu nota para este fragmento:');
+    if (!text || !text.trim()) return;
+
+    const sel = window.getSelection();
+    let pageNum = this.currentPage;
+    let x = 0.95;
+    let y = 0.2;
+
+    if (sel && !sel.isCollapsed) {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      let node: Node | null = range.startContainer;
+      while (node && !((node as HTMLElement).classList && (node as HTMLElement).classList.contains('pdf-page-wrapper'))) {
+        node = node.parentNode;
+      }
+      if (node) {
+        const pageWrapper = node as HTMLElement;
+        pageNum = parseInt(pageWrapper.id.replace('page-', ''), 10);
+        const pRect = pageWrapper.getBoundingClientRect();
+        x = Math.max(0.05, Math.min(0.95, (rect.right - pRect.left + 15) / pRect.width));
+        y = Math.max(0.05, Math.min(0.95, (rect.top - pRect.top) / pRect.height));
+      }
+    }
+
+    this.annotationManager.addNote(pageNum, x, y, text.trim(), this.activeColor);
+
+    const pageWrapper = document.getElementById(`page-${pageNum}`);
+    if (pageWrapper) {
+      const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
+      if (annotLayer) {
+        this.annotationManager.renderAnnotationsForPage(pageNum, annotLayer);
+      }
+    }
+  }
+
+  private setupKeyboardShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === 'o' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this.fileInput.click();
+      }
+      if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this.panels.toggleSearch();
+      }
+      if (e.key === 'i' || e.key === 'I') {
+        this.panels.toggleTOC();
+      }
+      if (e.key === 'Escape') {
+        this.panels.closeAll();
+      }
+      if (e.key === 'z' || e.key === 'Z') {
+        const btnZen = document.getElementById('btn-tool-zen');
+        btnZen?.click();
+      }
+    });
+  }
+}
+
+// Inicializar al cargar el DOM
+window.addEventListener('DOMContentLoaded', () => {
+  const app = new LectorPDFApp();
+  // Exponer a ventana para depuración o automatización
+  (window as unknown as { lectorApp: LectorPDFApp }).lectorApp = app;
+});
