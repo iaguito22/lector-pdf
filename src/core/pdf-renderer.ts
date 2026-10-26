@@ -42,7 +42,18 @@ export class PDFViewerEngine {
   }
 
   setScale(scale: number) {
-    this.currentScale = Math.max(0.5, Math.min(3.0, scale));
+    this.currentScale = Math.max(0.4, Math.min(3.5, scale));
+  }
+
+  async getPageOriginalSize(pageNumber = 1): Promise<{ width: number; height: number }> {
+    if (!this.doc) return { width: 595, height: 842 };
+    try {
+      const page = await this.doc.getPage(pageNumber);
+      const vp = page.getViewport({ scale: 1.0 });
+      return { width: vp.width, height: vp.height };
+    } catch {
+      return { width: 595, height: 842 };
+    }
   }
 
   async renderPage(pageNumber: number, pageWrapper: HTMLElement): Promise<void> {

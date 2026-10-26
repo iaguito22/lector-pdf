@@ -26,7 +26,8 @@ export function calculateDocking(
   }
 
   if (dock === 'top') {
-    const topPos = Math.max(10, Math.floor((marginTop - horizontalPillHeight) / 2));
+    const vTop = metrics.viewportTop || 42;
+    const topPos = vTop + Math.max(10, Math.floor((marginTop - horizontalPillHeight) / 2));
     return {
       dock,
       isVertical: false,

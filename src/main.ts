@@ -27,10 +27,20 @@ class LectorPDFApp {
   private totalPages = 0;
 
   constructor() {
+    this.setupSystemTheme();
     this.initUI();
     this.setupDropzone();
     this.setupResizeAndScroll();
     this.setupKeyboardShortcuts();
+  }
+
+  private setupSystemTheme() {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = (isDark: boolean) => {
+      document.body.dataset.systemTheme = isDark ? 'dark' : 'light';
+    };
+    update(mediaQuery.matches);
+    mediaQuery.addEventListener('change', (e) => update(e.matches));
   }
 
   getCurrentDocId(): string {
@@ -58,6 +68,12 @@ class LectorPDFApp {
       },
       onZoomChange: (delta) => {
         this.applyZoom(this.pdfEngine.getScale() + delta);
+      },
+      onFitPage: () => {
+        this.fitToPage();
+      },
+      onFitWidth: () => {
+        this.fitToWidth();
       },
       onModeChange: (mode) => {
         this.readingModes.setMode(mode);
@@ -145,13 +161,44 @@ class LectorPDFApp {
       }
     }
 
-    // Actualizar posicionamiento adaptativo de la barra
+    // Ajustar automáticamente a la página de inicio
+    await this.fitToPage();
     setTimeout(() => this.updateMagneticDock(), 60);
   }
 
-  private applyZoom(newScale: number) {
+  async fitToPage() {
+    if (this.totalPages === 0) return;
+    const orig = await this.pdfEngine.getPageOriginalSize(this.currentPage);
+    const vRect = this.viewportEl.getBoundingClientRect();
+
+    // Altura utilizable de la pantalla
+    const availableHeight = Math.max(300, vRect.height - 60);
+    // Ancho utilizable dejando espacio libre para la barra lateral
+    const availableWidth = Math.max(300, vRect.width - 150);
+
+    const scaleH = availableHeight / orig.height;
+    const scaleW = availableWidth / orig.width;
+    const targetScale = Math.min(scaleH, scaleW);
+
+    this.applyZoom(targetScale, 'Fit');
+  }
+
+  async fitToWidth() {
+    if (this.totalPages === 0) return;
+    const orig = await this.pdfEngine.getPageOriginalSize(this.currentPage);
+    const vRect = this.viewportEl.getBoundingClientRect();
+
+    const availableWidth = Math.max(300, vRect.width - 40);
+    const targetScale = availableWidth / orig.width;
+
+    this.applyZoom(targetScale, 'Ancho');
+  }
+
+  private applyZoom(newScale: number, customLabel?: string) {
     this.pdfEngine.setScale(newScale);
-    // Re-renderizar páginas con la nueva escala
+    const pct = Math.round(this.pdfEngine.getScale() * 100);
+    this.toolbar.setZoomLabel(customLabel || `${pct}%`);
+
     for (let p = 1; p <= this.totalPages; p++) {
       const pageWrapper = document.getElementById(`page-${p}`);
       if (pageWrapper) {
@@ -193,6 +240,7 @@ class LectorPDFApp {
       docHeight: dRect.height,
       viewportWidth: vRect.width,
       viewportHeight: vRect.height,
+      viewportTop: vRect.top,
     };
 
     const dockResult = calculateDocking(metrics);
@@ -353,6 +401,22 @@ class LectorPDFApp {
       }
       if (e.key === 'Escape') {
         this.panels.closeAll();
+      }
+      if (e.key === 'p' || e.key === 'P' || e.key === '0') {
+        e.preventDefault();
+        this.fitToPage();
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        this.fitToWidth();
+      }
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        this.applyZoom(this.pdfEngine.getScale() + 0.15);
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        this.applyZoom(this.pdfEngine.getScale() - 0.15);
       }
       if (e.key === 'z' || e.key === 'Z') {
         const btnZen = document.getElementById('btn-tool-zen');

@@ -51,6 +51,7 @@ export interface MarginMetrics {
   docHeight: number;
   viewportWidth: number;
   viewportHeight: number;
+  viewportTop?: number;
 }
 
 export interface DockCalculationResult {

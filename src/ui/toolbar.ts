@@ -6,6 +6,8 @@ export interface ToolbarEvents {
   onSearchToggle: () => void;
   onTOCToggle: () => void;
   onZoomChange: (delta: number) => void;
+  onFitPage: () => void;
+  onFitWidth: () => void;
   onModeChange: (mode: ReadingMode) => void;
   onZenToggle: (zenActive: boolean) => void;
   onPageJump: (pageNumber: number) => void;
@@ -38,6 +40,11 @@ export class MagneticToolbar {
     const totEl = this.element.querySelector('.page-tot-num');
     if (curEl) curEl.textContent = String(current).padStart(2, '0');
     if (totEl) totEl.textContent = String(total);
+  }
+
+  setZoomLabel(label: string) {
+    const zoomEl = this.element.querySelector('#zoom-indicator');
+    if (zoomEl) zoomEl.textContent = label;
   }
 
   setOrientation(isVertical: boolean, dock: 'left' | 'right' | 'top', coords: { top?: string; left?: string; right?: string; transform: string }) {
@@ -127,6 +134,19 @@ export class MagneticToolbar {
 
         <div class="tool-sep"></div>
 
+        <!-- Ajustar a la Página (Alto completo) -->
+        <button class="tool-btn" id="btn-fit-page" data-tip="Ajustar a la página (P / 0)">
+          <svg class="tool-icon" viewBox="0 0 24 24"><rect width="14" height="18" x="5" y="3" rx="2"/><path d="M9 7h6M9 17h6"/></svg>
+        </button>
+
+        <!-- Ajustar al Ancho -->
+        <button class="tool-btn" id="btn-fit-width" data-tip="Ajustar al ancho (W)">
+          <svg class="tool-icon" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"/><path d="m7 12 2.5-2.5m-2.5 2.5 2.5 2.5m7.5-2.5-2.5-2.5m2.5 2.5-2.5 2.5"/></svg>
+        </button>
+
+        <!-- Indicador de Zoom / Porcentaje -->
+        <div class="zoom-pill" id="zoom-indicator" title="Zoom actual">125%</div>
+
         <!-- Zoom Menos -->
         <button class="tool-btn" id="btn-zoom-out" data-tip="Reducir zoom (-)">
           <svg class="tool-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
@@ -201,7 +221,13 @@ export class MagneticToolbar {
       this.events.onTOCToggle();
     });
 
-    // Zoom
+    // Zoom y Ajuste
+    this.element.querySelector('#btn-fit-page')?.addEventListener('click', () => {
+      this.events.onFitPage();
+    });
+    this.element.querySelector('#btn-fit-width')?.addEventListener('click', () => {
+      this.events.onFitWidth();
+    });
     this.element.querySelector('#btn-zoom-in')?.addEventListener('click', () => {
       this.events.onZoomChange(0.15);
     });
