@@ -121,82 +121,11 @@ html, body {
 }
 
 /* -------------------------------------------------------------- */
-/* BARRA SUPERIOR (HEADER)                                        */
-/* -------------------------------------------------------------- */
-#app-header {
-  height: 42px;
-  background: var(--header-bg);
-  border-bottom: 1px solid var(--header-border);
-  backdrop-filter: blur(14px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  z-index: 100;
-  gap: 12px;
-  flex-shrink: 0;
-  transition: background 0.25s ease, border-color 0.25s ease;
-}
-
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  color: var(--tx);
-}
-.header-brand-badge {
-  background: var(--s2);
-  color: var(--tx2);
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid var(--glass-border);
-}
-.header-doc-title {
-  color: var(--tx2);
-  font-weight: 500;
-  font-size: 12.5px;
-  max-width: 440px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.action-chip {
-  background: var(--s1);
-  border: 1px solid var(--glass-border);
-  color: var(--tx2);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.15s ease;
-}
-.action-chip:hover {
-  background: var(--s2);
-  color: var(--tx);
-  border-color: rgba(120, 120, 120, 0.25);
-}
-
-/* -------------------------------------------------------------- */
-/* VIEWPORT Y CONTENEDOR DE PÁGINAS                               */
+/* VIEWPORT Y CONTENEDOR DE PÁGINAS (100% PANTALLA COMPLETA)     */
 /* -------------------------------------------------------------- */
 #app-viewport {
-  flex: 1;
+  width: 100vw;
+  height: 100vh;
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
@@ -204,7 +133,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 0 60px;
+  padding: 16px 0 40px;
   scroll-behavior: smooth;
   transition: background 0.25s ease;
 }

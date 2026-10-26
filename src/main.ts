@@ -17,7 +17,7 @@ class LectorPDFApp {
   private viewportEl = document.getElementById('app-viewport') as HTMLElement;
   private pagesContainer = document.getElementById('pages-container') as HTMLElement;
   private welcomeEl = document.getElementById('welcome-dropzone') as HTMLElement;
-  private docTitleEl = document.getElementById('header-title') as HTMLElement;
+  private docTitleEl = document.getElementById('header-title');
   private fileInput = document.getElementById('file-input') as HTMLInputElement;
 
   private currentDocId = 'default';
@@ -135,7 +135,8 @@ class LectorPDFApp {
     this.welcomeEl.style.display = 'none';
     this.pagesContainer.style.display = 'flex';
     this.pagesContainer.innerHTML = '';
-    this.docTitleEl.textContent = title;
+    if (this.docTitleEl) this.docTitleEl.textContent = title;
+    document.title = `${title} · Lector PDF`;
 
     const info = await this.pdfEngine.load(source);
     this.totalPages = info.numPages;
