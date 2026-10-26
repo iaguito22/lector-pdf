@@ -5,7 +5,7 @@ import { calculateDocking } from './ui/magnetic-dock';
 import { AnnotationManager } from './features/annotations';
 import { TOCSearchPanels } from './features/toc-search-panels';
 import { ReadingModesManager } from './features/reading-modes';
-import { HighlightColor, MarginMetrics, NormalizedRect } from './types';
+import { MarginMetrics } from './types';
 
 class LectorPDFApp {
   private pdfEngine = new PDFViewerEngine();
@@ -21,8 +21,6 @@ class LectorPDFApp {
   private fileInput = document.getElementById('file-input') as HTMLInputElement;
 
   private currentDocId = 'default';
-  private activeColor: HighlightColor = 'yellow';
-  private activeTool: 'cursor' | 'highlighter' | 'note' = 'cursor';
   private currentPage = 1;
   private totalPages = 0;
 
@@ -47,19 +45,9 @@ class LectorPDFApp {
     return this.currentDocId;
   }
 
-  getActiveTool(): 'cursor' | 'highlighter' | 'note' {
-    return this.activeTool;
-  }
-
   private initUI() {
     // 1. Barra Magnética (Píldora Caelestia Glass)
     this.toolbar = new MagneticToolbar(document.body, {
-      onToolChange: (tool) => {
-        this.activeTool = tool;
-      },
-      onColorChange: (color) => {
-        this.activeColor = color;
-      },
       onSearchToggle: () => {
         this.panels.toggleSearch();
       },
@@ -92,9 +80,7 @@ class LectorPDFApp {
     // 2. Paneles de TOC y Buscador
     this.panels = new TOCSearchPanels(
       document.body,
-      (page) => this.jumpToPage(page),
-      (color) => this.highlightCurrentSelection(color),
-      () => this.addNoteToCurrentSelection()
+      (page) => this.jumpToPage(page)
     );
 
     this.panels.onSearchInput(async (query) => {
@@ -287,6 +273,12 @@ class LectorPDFApp {
   }
 
   private setupResizeAndScroll() {
+    this.viewportEl.addEventListener('click', () => {
+      if (document.activeElement instanceof HTMLInputElement) {
+        document.activeElement.blur();
+      }
+    });
+
     window.addEventListener('resize', () => {
       this.updateMagneticDock();
     });
@@ -311,80 +303,6 @@ class LectorPDFApp {
     });
   }
 
-  private highlightCurrentSelection(color: HighlightColor) {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-
-    const range = sel.getRangeAt(0);
-    const selectedText = sel.toString().trim();
-    if (!selectedText) return;
-
-    // Localizar a qué página pertenece la selección
-    let node: Node | null = range.startContainer;
-    while (node && !((node as HTMLElement).classList && (node as HTMLElement).classList.contains('pdf-page-wrapper'))) {
-      node = node.parentNode;
-    }
-
-    if (!node) return;
-    const pageWrapper = node as HTMLElement;
-    const pageNum = parseInt(pageWrapper.id.replace('page-', ''), 10);
-    const pageRect = pageWrapper.getBoundingClientRect();
-
-    // Obtener rectángulos de la selección
-    const clientRects = Array.from(range.getClientRects());
-    const normalizedRects: NormalizedRect[] = clientRects.map(r => ({
-      top: (r.top - pageRect.top) / pageRect.height,
-      left: (r.left - pageRect.left) / pageRect.width,
-      width: r.width / pageRect.width,
-      height: r.height / pageRect.height,
-    }));
-
-    this.annotationManager.addHighlight(pageNum, color, selectedText, normalizedRects);
-
-    const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
-    if (annotLayer) {
-      this.annotationManager.renderAnnotationsForPage(pageNum, annotLayer);
-    }
-
-    sel.removeAllRanges();
-  }
-
-  private addNoteToCurrentSelection() {
-    const text = prompt('Escribe tu nota para este fragmento:');
-    if (!text || !text.trim()) return;
-
-    const sel = window.getSelection();
-    let pageNum = this.currentPage;
-    let x = 0.95;
-    let y = 0.2;
-
-    if (sel && !sel.isCollapsed) {
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      let node: Node | null = range.startContainer;
-      while (node && !((node as HTMLElement).classList && (node as HTMLElement).classList.contains('pdf-page-wrapper'))) {
-        node = node.parentNode;
-      }
-      if (node) {
-        const pageWrapper = node as HTMLElement;
-        pageNum = parseInt(pageWrapper.id.replace('page-', ''), 10);
-        const pRect = pageWrapper.getBoundingClientRect();
-        x = Math.max(0.05, Math.min(0.95, (rect.right - pRect.left + 15) / pRect.width));
-        y = Math.max(0.05, Math.min(0.95, (rect.top - pRect.top) / pRect.height));
-      }
-    }
-
-    this.annotationManager.addNote(pageNum, x, y, text.trim(), this.activeColor);
-
-    const pageWrapper = document.getElementById(`page-${pageNum}`);
-    if (pageWrapper) {
-      const annotLayer = pageWrapper.querySelector('.pdf-custom-annotation-layer') as HTMLElement;
-      if (annotLayer) {
-        this.annotationManager.renderAnnotationsForPage(pageNum, annotLayer);
-      }
-    }
-  }
-
   private setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -402,6 +320,10 @@ class LectorPDFApp {
       }
       if (e.key === 'Escape') {
         this.panels.closeAll();
+      }
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        this.toolbar.focusPageInput();
       }
       if (e.key === 'p' || e.key === 'P' || e.key === '0') {
         e.preventDefault();

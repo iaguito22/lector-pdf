@@ -369,17 +369,40 @@ body[data-system-theme="dark"] #adaptive-toolbar {
   font-weight: 700;
   color: var(--tx2);
   font-variant-numeric: tabular-nums;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 6px;
   background: var(--s2);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
-  cursor: pointer;
+  border: 1px solid var(--glass-border);
 }
-.page-cur-num { color: var(--tx); }
-.page-sep { opacity: 0.4; }
+.page-num-input {
+  width: 28px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tx);
+  text-align: center;
+  border-radius: 4px;
+  padding: 1px 2px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.page-num-input:focus {
+  background: var(--s3);
+  box-shadow: 0 0 0 1.5px var(--ac);
+}
+.page-num-input::-webkit-outer-spin-button,
+.page-num-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.page-sep { opacity: 0.4; font-size: 10px; }
+.page-tot-num { font-size: 11px; color: var(--tx3); }
 
 .zoom-pill {
   font-size: 11px;

@@ -1,25 +1,18 @@
-import { HighlightColor, SearchMatch, TOCItem } from '../types';
+import { SearchMatch, TOCItem } from '../types';
 
 export class TOCSearchPanels {
   private tocPanel: HTMLElement;
   private searchPanel: HTMLElement;
-  private selectionBubble: HTMLElement;
 
   constructor(
     private container: HTMLElement,
-    private onPageJump: (page: number) => void,
-    private onHighlightSelection: (color: HighlightColor) => void,
-    private onAddNoteSelection: () => void
+    private onPageJump: (page: number) => void
   ) {
     this.tocPanel = this.createTOCPanel();
     this.searchPanel = this.createSearchPanel();
-    this.selectionBubble = this.createSelectionBubble();
 
     this.container.appendChild(this.tocPanel);
     this.container.appendChild(this.searchPanel);
-    this.container.appendChild(this.selectionBubble);
-
-    this.setupGlobalSelection();
   }
 
   toggleTOC(force?: boolean) {
@@ -43,7 +36,6 @@ export class TOCSearchPanels {
   closeAll() {
     this.tocPanel.classList.remove('open');
     this.searchPanel.classList.remove('open');
-    this.selectionBubble.classList.remove('visible');
   }
 
   setTOC(items: TOCItem[]) {
@@ -98,7 +90,7 @@ export class TOCSearchPanels {
       card.className = 'search-match-card';
       card.innerHTML = `
         <div class="search-match-header">
-          <span class="search-match-page">Pág. ${m.pageNumber}</span>
+          <span class="search-match-page">Diapositiva ${m.pageNumber}</span>
         </div>
         <div class="search-match-snippet">${this.highlightSnippet(m.snippet, currentQuery)}</div>
       `;
@@ -124,7 +116,7 @@ export class TOCSearchPanels {
       <div class="panel-header">
         <span class="panel-title">
           <svg class="tool-icon" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h12"/></svg>
-          Índice del Documento
+          Índice de Capítulos
         </span>
         <button class="panel-close-btn" title="Cerrar">✕</button>
       </div>
@@ -155,64 +147,6 @@ export class TOCSearchPanels {
     `;
     panel.querySelector('.panel-close-btn')?.addEventListener('click', () => this.toggleSearch(false));
     return panel;
-  }
-
-  private createSelectionBubble(): HTMLElement {
-    const bubble = document.createElement('div');
-    bubble.id = 'selection-bubble';
-    bubble.innerHTML = `
-      <button class="bubble-btn" data-color="yellow" title="Subrayar amarillo">
-        <div class="color-dot c-yellow"></div>
-      </button>
-      <button class="bubble-btn" data-color="cyan" title="Subrayar azul">
-        <div class="color-dot c-cyan"></div>
-      </button>
-      <button class="bubble-btn" data-color="purple" title="Subrayar morado">
-        <div class="color-dot c-purple"></div>
-      </button>
-      <button class="bubble-btn" data-color="green" title="Subrayar verde">
-        <div class="color-dot c-green"></div>
-      </button>
-      <div class="bubble-sep"></div>
-      <button class="bubble-btn" id="bubble-add-note" title="Añadir nota">
-        <svg class="tool-icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      </button>
-    `;
-
-    bubble.querySelectorAll('.bubble-btn[data-color]').forEach(b => {
-      b.addEventListener('click', () => {
-        const color = (b as HTMLElement).dataset.color as HighlightColor;
-        this.onHighlightSelection(color);
-        bubble.classList.remove('visible');
-      });
-    });
-
-    bubble.querySelector('#bubble-add-note')?.addEventListener('click', () => {
-      this.onAddNoteSelection();
-      bubble.classList.remove('visible');
-    });
-
-    return bubble;
-  }
-
-  private setupGlobalSelection() {
-    document.addEventListener('selectionchange', () => {
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        this.selectionBubble.classList.remove('visible');
-        return;
-      }
-
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const vRect = this.container.getBoundingClientRect();
-
-      if (rect.top >= vRect.top && rect.bottom <= vRect.bottom && rect.width > 0) {
-        this.selectionBubble.style.left = `${rect.left + rect.width / 2}px`;
-        this.selectionBubble.style.top = `${rect.top - 12}px`;
-        this.selectionBubble.classList.add('visible');
-      }
-    });
   }
 
   private highlightSnippet(snippet: string, query: string): string {

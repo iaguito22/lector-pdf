@@ -1,8 +1,6 @@
-import { HighlightColor, ReadingMode } from '../types';
+import { ReadingMode } from '../types';
 
 export interface ToolbarEvents {
-  onToolChange: (tool: 'cursor' | 'highlighter' | 'note') => void;
-  onColorChange: (color: HighlightColor) => void;
   onSearchToggle: () => void;
   onTOCToggle: () => void;
   onZoomChange: (delta: number) => void;
@@ -16,12 +14,11 @@ export interface ToolbarEvents {
 
 export class MagneticToolbar {
   private element: HTMLElement;
-  private activeTool: 'cursor' | 'highlighter' | 'note' = 'cursor';
-  private activeColor: HighlightColor = 'yellow';
   private isZenActive = false;
   private zenTimer: number | null = null;
   private curPage = 1;
   private totalPages = 1;
+  private isUserTypingPage = false;
 
   constructor(private container: HTMLElement, private events: ToolbarEvents) {
     this.element = this.createDOM();
@@ -36,10 +33,17 @@ export class MagneticToolbar {
   setPage(current: number, total: number) {
     this.curPage = current;
     this.totalPages = total;
-    const curEl = this.element.querySelector('.page-cur-num');
+
+    const pageInput = this.element.querySelector<HTMLInputElement>('#page-num-input');
     const totEl = this.element.querySelector('.page-tot-num');
-    if (curEl) curEl.textContent = String(current).padStart(2, '0');
-    if (totEl) totEl.textContent = String(total);
+
+    // No sobreescribir si el usuario está tecleando ahora mismo en el input
+    if (pageInput && !this.isUserTypingPage) {
+      pageInput.value = String(current);
+    }
+    if (totEl) {
+      totEl.textContent = String(total);
+    }
   }
 
   setZoomLabel(label: string) {
@@ -47,10 +51,14 @@ export class MagneticToolbar {
     if (zoomEl) zoomEl.textContent = label;
   }
 
-  setOrientation(isVertical: boolean, dock: 'left' | 'right' | 'top', coords: { top?: string; left?: string; right?: string; transform: string }) {
+  setOrientation(
+    isVertical: boolean,
+    dock: 'left' | 'right' | 'top',
+    coords: { top?: string; left?: string; right?: string; transform: string }
+  ) {
     this.element.classList.remove('is-vertical', 'is-horizontal', 'dock-left', 'dock-right', 'dock-top');
     this.element.classList.add(isVertical ? 'is-vertical' : 'is-horizontal', `dock-${dock}`);
-    
+
     if (coords.top) this.element.style.top = coords.top;
     if (coords.left) this.element.style.left = coords.left;
     if (coords.right) this.element.style.right = coords.right;
@@ -68,12 +76,12 @@ export class MagneticToolbar {
     }, 2400);
   }
 
-  getActiveTool() {
-    return this.activeTool;
-  }
-
-  getActiveColor(): HighlightColor {
-    return this.activeColor;
+  focusPageInput() {
+    const input = this.element.querySelector<HTMLInputElement>('#page-num-input');
+    if (input) {
+      input.focus();
+      input.select();
+    }
   }
 
   private createDOM(): HTMLElement {
@@ -83,58 +91,40 @@ export class MagneticToolbar {
 
     nav.innerHTML = `
       <div class="tools-inner">
-        <!-- Indicador de Página -->
-        <div class="page-pill" title="Página actual · Clic para saltar">
-          <span class="page-cur-num">01</span>
+        <!-- 1. NAVEGACIÓN Y DIAPOSITIVA (Input numérico directo) -->
+        <div class="page-pill" title="Escribe un número de diapositiva y pulsa Enter (G)">
+          <input
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            id="page-num-input"
+            class="page-num-input"
+            value="1"
+            aria-label="Número de diapositiva"
+          />
           <span class="page-sep">/</span>
-          <span class="page-tot-num">01</span>
+          <span class="page-tot-num">1</span>
         </div>
 
-        <div class="tool-sep"></div>
-
-        <!-- Abrir archivo -->
-        <button class="tool-btn" id="btn-open-file" data-tip="Abrir PDF (Ctrl+O)">
-          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+        <!-- Índice de Capítulos (TOC) -->
+        <button class="tool-btn" id="btn-tool-toc" data-tip="Índice de capítulos (I)">
+          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h12"/></svg>
         </button>
 
-        <!-- Cursor Selección -->
-        <button class="tool-btn active" id="btn-tool-cursor" data-tip="Seleccionar texto (V)">
-          <svg class="tool-icon" viewBox="0 0 24 24"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
-        </button>
-
-        <!-- Resaltador -->
-        <button class="tool-btn" id="btn-tool-hl" data-tip="Resaltador activo (H)">
-          <svg class="tool-icon" viewBox="0 0 24 24"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
-        </button>
-
-        <!-- Paleta de Colores de Resaltado -->
-        <div class="color-picker-group">
-          <div class="color-dot c-yellow active" data-color="yellow" title="Idea principal"></div>
-          <div class="color-dot c-cyan" data-color="cyan" title="Definición o término"></div>
-          <div class="color-dot c-purple" data-color="purple" title="Fórmula o clave"></div>
-          <div class="color-dot c-green" data-color="green" title="Ejemplo práctico"></div>
-        </div>
-
-        <div class="tool-sep"></div>
-
-        <!-- Nota al margen -->
-        <button class="tool-btn" id="btn-tool-note" data-tip="Nota al margen (N)">
-          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><path d="M14 3v6h6"/><path d="M10 13h4"/><path d="M10 17h4"/></svg>
-        </button>
-
-        <!-- Buscador -->
-        <button class="tool-btn" id="btn-tool-search" data-tip="Buscar en PDF (Ctrl+F)">
+        <!-- Buscador en texto -->
+        <button class="tool-btn" id="btn-tool-search" data-tip="Buscar en diapositivas (Ctrl+F)">
           <svg class="tool-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
 
-        <!-- Índice TOC -->
-        <button class="tool-btn" id="btn-tool-toc" data-tip="Índice de Capítulos (I)">
-          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h12"/></svg>
+        <!-- Abrir archivo -->
+        <button class="tool-btn" id="btn-open-file" data-tip="Abrir otro PDF (Ctrl+O)">
+          <svg class="tool-icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
         </button>
 
         <div class="tool-sep"></div>
 
-        <!-- Ajustar a la Página (Alto completo) -->
+        <!-- 2. ZOOM Y ENCAJE DE PANTALLA -->
+        <!-- Ajustar a la Página (Completa) -->
         <button class="tool-btn" id="btn-fit-page" data-tip="Ajustar a la página (P / 0)">
           <svg class="tool-icon" viewBox="0 0 24 24"><rect width="14" height="18" x="5" y="3" rx="2"/><path d="M9 7h6M9 17h6"/></svg>
         </button>
@@ -144,8 +134,8 @@ export class MagneticToolbar {
           <svg class="tool-icon" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"/><path d="m7 12 2.5-2.5m-2.5 2.5 2.5 2.5m7.5-2.5-2.5-2.5m2.5 2.5-2.5 2.5"/></svg>
         </button>
 
-        <!-- Indicador de Zoom / Porcentaje -->
-        <div class="zoom-pill" id="zoom-indicator" title="Zoom actual">125%</div>
+        <!-- Indicador de Zoom -->
+        <div class="zoom-pill" id="zoom-indicator" title="Zoom actual">Fit</div>
 
         <!-- Zoom Menos -->
         <button class="tool-btn" id="btn-zoom-out" data-tip="Reducir zoom (-)">
@@ -157,7 +147,10 @@ export class MagneticToolbar {
           <svg class="tool-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
         </button>
 
-        <!-- Modos de Lectura (Ciclo) -->
+        <div class="tool-sep"></div>
+
+        <!-- 3. CONFORT Y MODOS DE VISUALIZACIÓN -->
+        <!-- Ciclo de Modos de Lectura (Luz, Sepia, Noche, OLED, E-ink) -->
         <button class="tool-btn" id="btn-tool-mode" data-tip="Modo lectura (M): Luz, Sepia, Noche, OLED, E-ink">
           <svg class="tool-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
         </button>
@@ -173,44 +166,61 @@ export class MagneticToolbar {
   }
 
   private setupListeners() {
+    const pageInput = this.element.querySelector<HTMLInputElement>('#page-num-input');
+
+    const handleJumpSubmit = () => {
+      if (!pageInput) return;
+      let val = parseInt(pageInput.value.replace(/\D/g, ''), 10);
+      if (!isNaN(val)) {
+        val = Math.max(1, Math.min(this.totalPages, val));
+        this.events.onPageJump(val);
+        pageInput.value = String(val);
+      } else {
+        pageInput.value = String(this.curPage);
+      }
+      this.isUserTypingPage = false;
+      pageInput.blur();
+    };
+
+    if (pageInput) {
+      pageInput.addEventListener('focus', () => {
+        this.isUserTypingPage = true;
+        setTimeout(() => pageInput.select(), 10);
+      });
+
+      pageInput.addEventListener('click', () => {
+        pageInput.select();
+      });
+
+      pageInput.addEventListener('blur', () => {
+        handleJumpSubmit();
+      });
+
+      pageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleJumpSubmit();
+        } else if (e.key === 'Escape') {
+          pageInput.value = String(this.curPage);
+          pageInput.blur();
+          this.isUserTypingPage = false;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          const next = Math.min(this.totalPages, this.curPage + 1);
+          this.events.onPageJump(next);
+          pageInput.value = String(next);
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const prev = Math.max(1, this.curPage - 1);
+          this.events.onPageJump(prev);
+          pageInput.value = String(prev);
+        }
+      });
+    }
+
     // Abrir archivo
     this.element.querySelector('#btn-open-file')?.addEventListener('click', () => {
       this.events.onOpenFile();
-    });
-
-    // Herramientas principales
-    const btnCursor = this.element.querySelector('#btn-tool-cursor');
-    const btnHl = this.element.querySelector('#btn-tool-hl');
-    const btnNote = this.element.querySelector('#btn-tool-note');
-
-    btnCursor?.addEventListener('click', () => {
-      this.setActiveTool('cursor');
-      this.events.onToolChange('cursor');
-    });
-
-    btnHl?.addEventListener('click', () => {
-      this.setActiveTool('highlighter');
-      this.events.onToolChange('highlighter');
-    });
-
-    btnNote?.addEventListener('click', () => {
-      this.setActiveTool('note');
-      this.events.onToolChange('note');
-    });
-
-    // Colores
-    this.element.querySelectorAll('.color-dot').forEach(dot => {
-      dot.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.element.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
-        dot.classList.add('active');
-        const color = (dot as HTMLElement).dataset.color as HighlightColor;
-        this.activeColor = color;
-        this.events.onColorChange(color);
-        // Si no estaba en resaltador, activarlo
-        this.setActiveTool('highlighter');
-        this.events.onToolChange('highlighter');
-      });
     });
 
     // Búsqueda y TOC
@@ -235,7 +245,7 @@ export class MagneticToolbar {
       this.events.onZoomChange(-0.15);
     });
 
-    // Modos de color
+    // Modos de lectura
     const modes: ReadingMode[] = ['light', 'sepia', 'dark', 'oled', 'eink'];
     let modeIdx = 0;
     this.element.querySelector('#btn-tool-mode')?.addEventListener('click', () => {
@@ -257,27 +267,9 @@ export class MagneticToolbar {
       }
     });
 
-    // Salto de página
-    this.element.querySelector('.page-pill')?.addEventListener('click', () => {
-      const p = prompt(`Ir a la página (1 a ${this.totalPages}):`, String(this.curPage));
-      if (p) {
-        const num = parseInt(p, 10);
-        if (!isNaN(num) && num >= 1 && num <= this.totalPages) {
-          this.events.onPageJump(num);
-        }
-      }
-    });
-
     // Despertar Zen al hacer hover
     this.element.addEventListener('mouseenter', () => {
       this.triggerZenActivity();
     });
-  }
-
-  private setActiveTool(tool: 'cursor' | 'highlighter' | 'note') {
-    this.activeTool = tool;
-    this.element.querySelector('#btn-tool-cursor')?.classList.toggle('active', tool === 'cursor');
-    this.element.querySelector('#btn-tool-hl')?.classList.toggle('active', tool === 'highlighter');
-    this.element.querySelector('#btn-tool-note')?.classList.toggle('active', tool === 'note');
   }
 }
