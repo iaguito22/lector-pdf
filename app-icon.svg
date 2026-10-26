@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e2025"/>
+      <stop offset="100%" stop-color="#0f1013"/>
+    </linearGradient>
+    <linearGradient id="sheetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="foldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="100%" stop-color="#e11d48"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="badgeShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#e11d48" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle -->
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bgGrad)" stroke="#2e323b" stroke-width="6"/>
+
+  <!-- Document Page with shadow -->
+  <g filter="url(#shadow)">
+    <!-- Sheet with folded corner -->
+    <path d="M 270 200 L 590 200 L 754 364 L 754 820 A 24 24 0 0 1 730 844 L 270 844 A 24 24 0 0 1 246 820 L 246 224 A 24 24 0 0 1 270 200 Z" fill="url(#sheetGrad)"/>
+    <!-- Fold triangle -->
+    <path d="M 590 200 L 590 340 A 24 24 0 0 0 614 364 L 754 364 Z" fill="url(#foldGrad)"/>
+  </g>
+
+  <!-- Document Content Lines -->
+  <rect x="330" y="440" width="364" height="28" rx="14" fill="#64748b" opacity="0.35"/>
+  <rect x="330" y="504" width="310" height="24" rx="12" fill="#64748b" opacity="0.25"/>
+  <rect x="330" y="556" width="340" height="24" rx="12" fill="#64748b" opacity="0.25"/>
+  <rect x="330" y="608" width="260" height="24" rx="12" fill="#64748b" opacity="0.25"/>
+
+  <!-- PDF Pill Badge -->
+  <g filter="url(#badgeShadow)">
+    <rect x="220" y="670" width="240" height="88" rx="22" fill="url(#accentGrad)"/>
+    <text x="340" y="730" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="44" fill="#ffffff" text-anchor="middle" letter-spacing="3">PDF</text>
+  </g>
+</svg>
