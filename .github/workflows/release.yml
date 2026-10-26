@@ -107,14 +107,40 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Create Arch package (.pkg.tar.zst)
+      - name: Package Arch Linux (.pkg.tar.zst) and organize assets
         run: |
-          # Create standalone tarball or package for Arch
-          mkdir -p arch-pkg/usr/bin arch-pkg/usr/share/applications arch-pkg/usr/share/icons/hicolor/128x128/apps
-          mkdir -p release-final
-          # Copy downloaded artifacts to flat release folder
+          mkdir -p release-final arch-content
+          DEB_FILE=$(find release-artifacts -type f -name "*.deb" | head -n 1)
+          if [ -n "$DEB_FILE" ] && [ -f "$DEB_FILE" ]; then
+            cd arch-content
+            ar x "$OLDPWD/$DEB_FILE"
+            tar -xf data.tar.*
+            cat > .PKGINFO <<EOF
+          pkgname = lector-pdf
+          pkgver = 1.0.0-1
+          pkgdesc = Lector de PDF minimalista con barra magnética adaptativa
+          url = https://github.com/iaguito22/lector-pdf
+          builddate = $(date +%s)
+          packager = Iago <igl2005@hotmail.com>
+          size = $(du -sb usr | awk '{print $1}')
+          arch = x86_64
+          license = MIT
+          depend = webkit2gtk-4.1
+          depend = gtk3
+          depend = cairo
+          depend = gdk-pixbuf2
+          depend = glib2
+          EOF
+            cat > .BUILDINFO <<EOF
+          format = 2
+          pkgname = lector-pdf
+          pkgver = 1.0.0-1
+          pkgarch = x86_64
+          EOF
+            tar --zstd -cf "$OLDPWD/release-final/lector-pdf-1.0.0-1-x86_64.pkg.tar.zst" .PKGINFO .BUILDINFO usr
+            cd "$OLDPWD"
+          fi
           find release-artifacts -type f \( -name "*.exe" -o -name "*.deb" -o -name "*.AppImage" \) -exec cp {} release-final/ \;
-          # Also include PKGBUILD in release assets
           cp PKGBUILD release-final/PKGBUILD
 
       - name: GitHub Release
