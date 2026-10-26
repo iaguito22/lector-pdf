@@ -130,12 +130,19 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--pdf-stage-bg);
+  scroll-behavior: smooth;
+  scroll-snap-type: y proximity;
+  transition: background 0.25s ease;
+}
+
+#pages-container {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
   padding: 16px 0 40px;
-  scroll-behavior: smooth;
-  transition: background 0.25s ease;
+  box-sizing: border-box;
+  transition: padding 0.2s ease;
 }
 
 #app-viewport::-webkit-scrollbar { width: 8px; }
@@ -150,6 +157,8 @@ html, body {
 .pdf-page-wrapper {
   position: relative;
   margin-bottom: 24px;
+  scroll-snap-align: center;
+  scroll-snap-stop: normal;
   box-shadow: var(--doc-shadow);
   border-radius: 4px;
   background: #ffffff;

@@ -23,6 +23,7 @@ class LectorPDFApp {
   private currentDocId = 'default';
   private currentPage = 1;
   private totalPages = 0;
+  private currentFitMode: 'width' | 'page' | 'free' = 'width';
 
   constructor() {
     this.setupSystemTheme();
@@ -148,13 +149,15 @@ class LectorPDFApp {
       }
     }
 
-    // Ajustar automáticamente a la página de inicio
-    await this.fitToPage();
+    // Ajustar automáticamente al ancho por defecto (máximo espacio útil)
+    this.currentFitMode = 'width';
+    await this.fitToWidth();
     setTimeout(() => this.updateMagneticDock(), 60);
   }
 
   async fitToPage() {
     if (this.totalPages === 0) return;
+    this.currentFitMode = 'page';
     const orig = await this.pdfEngine.getPageOriginalSize(this.currentPage);
     const vRect = this.viewportEl.getBoundingClientRect();
 
@@ -172,6 +175,7 @@ class LectorPDFApp {
 
   async fitToWidth() {
     if (this.totalPages === 0) return;
+    this.currentFitMode = 'width';
     const orig = await this.pdfEngine.getPageOriginalSize(this.currentPage);
     const vRect = this.viewportEl.getBoundingClientRect();
 
@@ -182,6 +186,9 @@ class LectorPDFApp {
   }
 
   private applyZoom(newScale: number, customLabel?: string) {
+    if (!customLabel) {
+      this.currentFitMode = 'free';
+    }
     this.pdfEngine.setScale(newScale);
     const pct = Math.round(this.pdfEngine.getScale() * 100);
     this.toolbar.setZoomLabel(customLabel || `${pct}%`);
@@ -201,16 +208,35 @@ class LectorPDFApp {
   }
 
   private jumpToPage(page: number) {
-    this.currentPage = page;
-    this.toolbar.setPage(page, this.totalPages);
-    const target = document.getElementById(`page-${page}`);
+    if (this.totalPages === 0) return;
+    const clamped = Math.max(1, Math.min(this.totalPages, page));
+    this.currentPage = clamped;
+    this.toolbar.setPage(clamped, this.totalPages);
+    this.toolbar.triggerZenActivity();
+    const target = document.getElementById(`page-${clamped}`);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  private updateContainerPadding() {
+    const firstWrapper = this.pagesContainer.querySelector('.pdf-page-wrapper') as HTMLElement;
+    if (!firstWrapper) return;
+    const vHeight = this.viewportEl.clientHeight;
+    const pageHeight = firstWrapper.offsetHeight;
+    if (pageHeight > 0 && pageHeight < vHeight) {
+      const verticalMargin = Math.max(16, Math.round((vHeight - pageHeight) / 2));
+      this.pagesContainer.style.paddingTop = `${verticalMargin}px`;
+      this.pagesContainer.style.paddingBottom = `${verticalMargin}px`;
+    } else {
+      this.pagesContainer.style.paddingTop = '16px';
+      this.pagesContainer.style.paddingBottom = '40px';
     }
   }
 
   private updateMagneticDock() {
     if (this.totalPages === 0) return;
+    this.updateContainerPadding();
 
     const firstPage = this.pagesContainer.querySelector('.pdf-page-wrapper') as HTMLElement;
     if (!firstPage) return;
@@ -280,18 +306,24 @@ class LectorPDFApp {
     });
 
     window.addEventListener('resize', () => {
-      this.updateMagneticDock();
+      if (this.currentFitMode === 'width') {
+        this.fitToWidth();
+      } else if (this.currentFitMode === 'page') {
+        this.fitToPage();
+      } else {
+        this.updateMagneticDock();
+      }
     });
 
     this.viewportEl.addEventListener('scroll', () => {
       this.toolbar.triggerZenActivity();
 
-      // Detectar página visible
+      // Detectar página visible en el centro vertical de la pantalla
       const wrappers = this.pagesContainer.querySelectorAll('.pdf-page-wrapper');
-      const vTop = this.viewportEl.scrollTop + 120;
+      const vCenter = this.viewportEl.scrollTop + (this.viewportEl.clientHeight / 2);
       for (const w of Array.from(wrappers)) {
         const el = w as HTMLElement;
-        if (el.offsetTop <= vTop && el.offsetTop + el.offsetHeight > vTop) {
+        if (el.offsetTop <= vCenter && el.offsetTop + el.offsetHeight >= vCenter) {
           const p = parseInt(el.id.replace('page-', ''), 10);
           if (p !== this.currentPage && !isNaN(p)) {
             this.currentPage = p;
@@ -306,6 +338,32 @@ class LectorPDFApp {
   private setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Navegación de páginas con flechitas y teclas de presentación
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+        if (this.totalPages > 0 && this.currentPage < this.totalPages) {
+          e.preventDefault();
+          this.jumpToPage(this.currentPage + 1);
+        }
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        if (this.totalPages > 0 && this.currentPage > 1) {
+          e.preventDefault();
+          this.jumpToPage(this.currentPage - 1);
+        }
+      }
+      if (e.key === 'Home') {
+        if (this.totalPages > 0 && this.currentPage !== 1) {
+          e.preventDefault();
+          this.jumpToPage(1);
+        }
+      }
+      if (e.key === 'End') {
+        if (this.totalPages > 0 && this.currentPage !== this.totalPages) {
+          e.preventDefault();
+          this.jumpToPage(this.totalPages);
+        }
+      }
 
       if (e.key === 'o' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();

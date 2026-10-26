@@ -4,8 +4,8 @@ dist
 .DS_Store
 *.log
 src-tauri/target
-pkg
-src
+/pkg
 *.pkg.tar.zst
 release-artifacts
 release-final
+*.deb
